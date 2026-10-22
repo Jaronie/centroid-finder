@@ -1,4 +1,5 @@
 import java.util.List;
+import java.util.ArrayList;
 
 public class DfsBinaryGroupFinder implements BinaryGroupFinder {
    /**
@@ -28,9 +29,42 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
     * @param image a rectangular 2D array containing only 1s and 0s
     * @return the found groups of connected pixels in descending order
     */
+
+    private static final int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
     @Override
     public List<Group> findConnectedGroups(int[][] image) {
+
+        // Throw NullPointerException if null val provided
+        if (image == null) throw new NullPointerException("Image cannot be null.");
+
+        // Store ROWS & COLS + start location + list to fill
+        int ROWS = image.length, COLS = image[0].length;
+        List<Group> groupList = new ArrayList<>();
+
+        // Iterate through image searching for 1
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                if (image[r][c] == 1) {
+                    Group newGroup = new Group(findGroupSize(image, new Coordinate(r, c)), findGroupCentroid(image, new Coordinate(r, c)));
+                    groupList.add(newGroup);
+                }
+            }
+        }
+
+        
+        
         return null;
     }
+
+    public int findGroupSize(int[][] image, Coordinate current) {
+        
+    }
+
+    public Coordinate findGroupCentroid(int[][] image, Coordinate current) {
+        
+    }
+
+
     
 }
