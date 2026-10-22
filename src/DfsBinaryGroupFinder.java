@@ -1,6 +1,5 @@
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class DfsBinaryGroupFinder implements BinaryGroupFinder {
    /**
@@ -39,25 +38,26 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         // Throw NullPointerException if null val provided
         if (image == null) throw new NullPointerException("Image cannot be null.");
 
-        // Store ROWS & COLS + start location + list to  + copy of image to pass in
+        // Store ROWS & COLS + start location + list to return
         int ROWS = image.length, COLS = image[0].length;
         List<Group> groupList = new ArrayList<>();
-
-
-        // 
 
         // Iterate through image searching for 1
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 if (image[r][c] == 1) {
 
+                    // Create visited matrix, call findGroupSize
                     boolean[][] visited = new boolean[image.length][image[0].length];
                     int size = findGroupSize(image, visited, new Coordinate(r, c));
 
+                    // Find centroid with findGroupCentroid
                     Coordinate centroid = findGroupCentroid(image, size, new Coordinate(r, c));
 
+                    // Initialize Group
                     Group newGroup = new Group(size, centroid);
 
+                    // Add to list
                     groupList.add(newGroup);
                 }
             }
@@ -66,15 +66,19 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         return groupList;
     }
 
-    public int findGroupSize(int[][] image, boolean[][] visited, Coordinate current) {
+    private int findGroupSize(int[][] image, boolean[][] visited, Coordinate current) {
+        // Base case checks
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
             current.x() >= image[0].length || visited[current.y()][current.x()] )
             return 0;
 
+            // Set visited
             visited[current.y()][current.x()] = true;
 
+            // Define size
             int size = 1;
 
+            // Iterate through directions, add to size
             for (int[] dir : directions) {
                 size += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
             }
@@ -82,27 +86,34 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
             return size;
     }
 
-    public Coordinate findGroupCentroid(int[][] image, int size, Coordinate current) {
+    private Coordinate findGroupCentroid(int[][] image, int size, Coordinate current) {
+        // Create visited matrix to store visited spots, call sumX helper
         boolean[][] visited = new boolean[image.length][image[0].length];
         int sumX = sumX(image, visited, current);
 
+        // Re-initialize visited to clear it, call sumY
         visited = new boolean[image.length][image[0].length];
         int sumY = sumY(image, visited, current);
 
+        // Create centroid Coordinate
         Coordinate centroid = new Coordinate(sumX / size, sumY / size);
 
         return centroid;
     }
 
-    public int sumX(int[][] image, boolean[][] visited, Coordinate current) {
+    private int sumX(int[][] image, boolean[][] visited, Coordinate current) {
+        // Base case checks
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
             current.x() >= image[0].length || visited[current.y()][current.x()] )
             return 0;
 
+        // Update visited
         visited[current.y()][current.x()] = true;
 
+        // Initialize sum
         int sum = current.x();
 
+        // Check other values
         for (int[] dir : directions) {
                 sum += sumX(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
             }
@@ -110,22 +121,23 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         return sum;
     }
 
-    public int sumY(int[][] image, boolean[][] visited, Coordinate current) {
+    private int sumY(int[][] image, boolean[][] visited, Coordinate current) {
+        // Base case checks
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
             current.x() >= image[0].length || visited[current.y()][current.x()] )
             return 0;
 
+        // Update visited
         visited[current.y()][current.x()] = true;
 
+        // Make sum = Y
         int sum = current.y();
 
+        // Sum from rest of coordinates
         for (int[] dir : directions) {
                 sum += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
             }
 
         return sum;
     }
-
-
-    
 }
