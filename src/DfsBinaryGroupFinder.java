@@ -57,14 +57,13 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
                     Coordinate centroid = findGroupCentroid(image, size, new Coordinate(r, c));
 
                     Group newGroup = new Group(size, centroid);
+
                     groupList.add(newGroup);
                 }
             }
         }
 
-        
-        
-        return null;
+        return groupList;
     }
 
     public int findGroupSize(int[][] image, boolean[][] visited, Coordinate current) {
@@ -93,7 +92,6 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         Coordinate centroid = new Coordinate(sumX / size, sumY / size);
 
         return centroid;
-
     }
 
     public int sumX(int[][] image, boolean[][] visited, Coordinate current) {
@@ -103,13 +101,13 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         visited[current.y()][current.x()] = true;
 
-        int sumX = current.x();
+        int sum = current.x();
 
         for (int[] dir : directions) {
-                sumX += sumX(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
+                sum += sumX(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
             }
 
-        return size;
+        return sum;
     }
 
     public int sumY(int[][] image, boolean[][] visited, Coordinate current) {
@@ -119,13 +117,13 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         visited[current.y()][current.x()] = true;
 
-        int size = 1;
+        int sum = current.y();
 
         for (int[] dir : directions) {
-                size += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
+                sum += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
             }
 
-        return size;
+        return sum;
     }
 
 
