@@ -68,8 +68,9 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
     private int findGroupSize(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
+
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] )
+            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.y()][current.x()] == 0 )
             return 0;
 
             // Set visited
@@ -80,7 +81,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
             // Iterate through directions, add to size
             for (int[] dir : directions) {
-                size += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
+                size += findGroupSize(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
             }
 
             return size;
@@ -104,7 +105,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
     private int sumX(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] )
+            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
             return 0;
 
         // Update visited
@@ -115,7 +116,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Check other values
         for (int[] dir : directions) {
-                sum += sumX(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
+                sum += sumX(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
             }
 
         return sum;
@@ -124,7 +125,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
     private int sumY(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] )
+            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
             return 0;
 
         // Update visited
@@ -135,7 +136,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Sum from rest of coordinates
         for (int[] dir : directions) {
-                sum += findGroupSize(image, visited, new Coordinate(current.y() + dir[0], current.x() + dir[1]));
+                sum += findGroupSize(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
             }
 
         return sum;
