@@ -39,7 +39,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         if (image == null) throw new NullPointerException("Image cannot be null.");
 
         // Check for size
-        if (image[0].length == 0) throw new IllegalArgumentException("Image cannot have size of zero.");
+        if (image.length == 0 || image[0].length == 0) throw new IllegalArgumentException("Image cannot have size of zero.");
 
         // Store ROWS & COLS + start location + list to return
         int ROWS = image.length, COLS = image[0].length;
@@ -110,12 +110,9 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         boolean[][] visited = new boolean[image.length][image[0].length];
         int sumX = sumX(image, visited, current);
 
-        System.out.println(sumX);
-
         // Re-initialize visited to clear it, call sumY
         visited = new boolean[image.length][image[0].length];
         int sumY = sumY(image, visited, current);
-
 
         // Create centroid Coordinate
         Coordinate centroid = new Coordinate(sumX / size, sumY / size);
@@ -137,7 +134,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Check other values
         for (int[] dir : directions) {
-                sum += sumX(image, visited, new Coordinate(current.x() + dir[0], current.y()));
+                sum += sumX(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
             }
 
         return sum;
@@ -157,7 +154,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Sum from rest of coordinates
         for (int[] dir : directions) {
-                sum += sumY(image, visited, new Coordinate(current.x(), current.y() + dir[1]));
+                sum += sumY(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
         }
 
         return sum;
