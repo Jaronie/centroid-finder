@@ -38,8 +38,23 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         // Throw NullPointerException if null val provided
         if (image == null) throw new NullPointerException("Image cannot be null.");
 
+        // Check for size
+        if (image[0].length == 0) throw new IllegalArgumentException("Image cannot have size of zero.");
+
         // Store ROWS & COLS + start location + list to return
         int ROWS = image.length, COLS = image[0].length;
+
+        // Check for jagged edges + invalid values
+        for (int r = 0; r < image.length; r++) {
+            if (image[r].length != image[0].length) throw new IllegalArgumentException("Image must be rectangular.");
+            
+            for (int c = 0; c < image[0].length; c++) {
+                if (image[r][c] != 1 && image[r][c] != 0) throw new IllegalArgumentException("Image must contain only 1 and 0.");
+            }
+        }
+
+
+
         List<Group> groupList = new ArrayList<>();
 
         // Iterate through image searching for 1
@@ -104,8 +119,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
     private int sumX(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
-        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
+        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length - 1 || 
+            current.x() >= image[0].length - 1 || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
             return 0;
 
         // Update visited
@@ -124,8 +139,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
     private int sumY(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
-        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
+        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length - 1 || 
+            current.x() >= image[0].length - 1 || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
             return 0;
 
         // Update visited
