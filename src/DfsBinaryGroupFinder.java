@@ -57,20 +57,23 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         List<Group> groupList = new ArrayList<>();
 
+        // Create visited matrix, call findGroupSize
+        boolean[][] visited = new boolean[image.length][image[0].length];
+
         // Iterate through image searching for 1
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-                if (image[r][c] == 1) {
+                if (image[r][c] == 1 && visited[r][c] == false) {
 
-                    // Create visited matrix, call findGroupSize
-                    boolean[][] visited = new boolean[image.length][image[0].length];
-                    int size = findGroupSize(image, visited, new Coordinate(r, c));
+                    
+                    int size = findGroupSize(image, visited, new Coordinate(c, r));
+                    System.out.println(size);
 
                     // Check if size is zero (meaning has already been visited)
                     if (size == 0) continue;
 
                     // Find centroid with findGroupCentroid
-                    Coordinate centroid = findGroupCentroid(image, size, new Coordinate(r, c));
+                    Coordinate centroid = findGroupCentroid(image, size, new Coordinate(c, r));
 
                     // Initialize Group
                     Group newGroup = new Group(size, centroid);
@@ -80,7 +83,10 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
                 }
             }
         }
-
+        
+        // Sort list
+        groupList.sort((a, b) -> b.compareTo(a));
+        
         return groupList;
     }
 
@@ -88,7 +94,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         // Base case checks
 
         if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
-            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.y()][current.x()] == 0 )
+            current.x() >= image[0].length || visited[current.y()][current.x()] ||
+            image[current.y()][current.x()] == 0)
             return 0;
 
             // Set visited
