@@ -66,6 +66,9 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
                     boolean[][] visited = new boolean[image.length][image[0].length];
                     int size = findGroupSize(image, visited, new Coordinate(r, c));
 
+                    // Check if size is zero (meaning has already been visited)
+                    if (size == 0) continue;
+
                     // Find centroid with findGroupCentroid
                     Coordinate centroid = findGroupCentroid(image, size, new Coordinate(r, c));
 
@@ -119,8 +122,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
     private int sumX(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
-        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length - 1 || 
-            current.x() >= image[0].length - 1 || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
+        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
+            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.y()][current.x()] == 0)
             return 0;
 
         // Update visited
@@ -139,8 +142,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
     private int sumY(int[][] image, boolean[][] visited, Coordinate current) {
         // Base case checks
-        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length - 1 || 
-            current.x() >= image[0].length - 1 || visited[current.y()][current.x()] || image[current.x()][current.y()] == 0)
+        if (current.y() < 0 || current.x() < 0 || current.y() >= image.length || 
+            current.x() >= image[0].length || visited[current.y()][current.x()] || image[current.y()][current.x()] == 0)
             return 0;
 
         // Update visited
