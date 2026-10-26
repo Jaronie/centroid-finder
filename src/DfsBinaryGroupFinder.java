@@ -110,9 +110,12 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
         boolean[][] visited = new boolean[image.length][image[0].length];
         int sumX = sumX(image, visited, current);
 
+        System.out.println(sumX);
+
         // Re-initialize visited to clear it, call sumY
         visited = new boolean[image.length][image[0].length];
         int sumY = sumY(image, visited, current);
+
 
         // Create centroid Coordinate
         Coordinate centroid = new Coordinate(sumX / size, sumY / size);
@@ -134,7 +137,7 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Check other values
         for (int[] dir : directions) {
-                sum += sumX(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
+                sum += sumX(image, visited, new Coordinate(current.x() + dir[0], current.y()));
             }
 
         return sum;
@@ -154,8 +157,8 @@ public class DfsBinaryGroupFinder implements BinaryGroupFinder {
 
         // Sum from rest of coordinates
         for (int[] dir : directions) {
-                sum += findGroupSize(image, visited, new Coordinate(current.x() + dir[0], current.y() + dir[1]));
-            }
+                sum += sumY(image, visited, new Coordinate(current.x(), current.y() + dir[1]));
+        }
 
         return sum;
     }
