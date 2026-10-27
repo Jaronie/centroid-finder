@@ -1,10 +1,13 @@
-package java.io.github.jaronie.centroidFinder;
+package test.java.io.github.jaronie.centroidFinder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.image.BufferedImage;
+import java.io.github.jaronie.centroidFinder.BinaryGroupFinder;
+import java.io.github.jaronie.centroidFinder.Group;
+import java.io.github.jaronie.centroidFinder.ImageBinarizer;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
