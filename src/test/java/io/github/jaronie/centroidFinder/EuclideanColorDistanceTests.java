@@ -1,5 +1,9 @@
+package test.java.io.github.jaronie.centroidFinder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.github.jaronie.centroidFinder.ColorDistanceFinder;
+import java.io.github.jaronie.centroidFinder.EuclideanColorDistance;
 
 import org.junit.jupiter.api.Test;
 

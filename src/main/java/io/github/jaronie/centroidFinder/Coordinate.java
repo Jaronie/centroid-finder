@@ -1,3 +1,4 @@
+package java.io.github.jaronie.centroidFinder;
 /**
  * Represents a location in an image or array
  * 

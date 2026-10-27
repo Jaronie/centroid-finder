@@ -1,3 +1,4 @@
+package java.io.github.jaronie.centroidFinder;
 /**
  * Defines an interface for computing the distance between two colors.
  * 

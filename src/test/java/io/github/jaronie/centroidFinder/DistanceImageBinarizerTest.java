@@ -1,5 +1,9 @@
+package test.java.io.github.jaronie.centroidFinder;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.github.jaronie.centroidFinder.ColorDistanceFinder;
+import java.io.github.jaronie.centroidFinder.DistanceImageBinarizer;
 
 public class DistanceImageBinarizerTest {
 
