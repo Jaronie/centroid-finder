@@ -1,4 +1,4 @@
-package java.io.github.jaronie.centroidFinder;
+package io.github.jaronie.centroidFinder;
 import java.util.List;
 
 public interface BinaryGroupFinder {
