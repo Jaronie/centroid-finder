@@ -36,7 +36,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <mainClass>io.github.jaronie.CentroidFinder.ImageSummaryApp</mainClass>
+          <mainClass>io.github.jaronie.centroidFinder.ImageSummaryApp</mainClass>
         </configuration>
       </plugin>
     </plugins>
