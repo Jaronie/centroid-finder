@@ -1,11 +1,11 @@
-package test.java.io.github.jaronie.centroidFinder;
+package io.github.jaronie.centroidFinder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.github.jaronie.centroidFinder.Coordinate;
-import java.io.github.jaronie.centroidFinder.DfsBinaryGroupFinder;
-import java.io.github.jaronie.centroidFinder.Group;
+import io.github.jaronie.centroidFinder.Coordinate;
+import io.github.jaronie.centroidFinder.DfsBinaryGroupFinder;
+import io.github.jaronie.centroidFinder.Group;
 import java.util.Arrays;
 import java.util.List;
 
