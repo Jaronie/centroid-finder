@@ -20,6 +20,31 @@
       <version>5.10.0</version>
       <scope>test</scope>
     </dependency>
+
+      <!-- Jaffree for video processing 
+      Source: https://mvnrepository.com/artifact/io.v47.jaffree/jaffree -->
+    <dependency>
+        <groupId>io.v47.jaffree</groupId>
+        <artifactId>jaffree</artifactId>
+        <version>2.1.0</version>
+        <scope>compile</scope>
+    </dependency>
+   
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+
+    <!-- slf4j binding, so ffmpeg's own warnings and errors reach the console.
+         Without a binding slf4j is a no-op and Jaffree swallows ffmpeg's stderr. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -30,14 +55,29 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.3</version>
       </plugin>
-      <!-- Exec -->
+      <!-- Exec. One named execution per runnable main class:
+             mvn exec:java@summary -Dexec.args="sampleInput/squares.jpg FF0000 100"
+             mvn exec:java@jaffree -Dexec.args="sampleInput/ensantina.mp4 1 10 frameOutput"
+           mainClass is deliberately NOT set at the plugin level: plugin configuration
+           overrides -Dexec.mainClass, so setting it there pins every run to one class. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
-        <configuration>
-          <mainClass>io.github.jaronie.centroidFinder.ImageSummaryApp</mainClass>
-        </configuration>
+        <executions>
+          <execution>
+            <id>summary</id>
+            <configuration>
+              <mainClass>io.github.jaronie.centroidFinder.ImageSummaryApp</mainClass>
+            </configuration>
+          </execution>
+          <execution>
+            <id>jaffree</id>
+            <configuration>
+              <mainClass>io.github.jaronie.centroidFinder.TestingJaffree</mainClass>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
