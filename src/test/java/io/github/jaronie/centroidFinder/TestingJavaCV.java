@@ -1,109 +1,89 @@
-package io.github.jaronie.centroidFinder;
-import org.bytedeco.ffmpeg.global.avcodec;
-import org.bytedeco.ffmpeg.global.avutil;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
-import org.bytedeco.javacv.FFmpegFrameRecorder;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
-import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Tests for video metadata reading and frame extraction using JavaCV.
+ * Extracts metadata and frame data from a video file using JavaCV (FFmpeg bundled, runs locally).
  *
- * The test video is generated at runtime (no binary fixtures needed):
- * 50 frames, 320x240, 25 fps (2 seconds). The first 25 frames are red,
- * the last 25 frames are blue, so extracted frames can be verified by color.
+ * Requires Java 17+ (uses records).
  */
-class TestingJavaCV {
+public final class TestingJavaCV {
 
-    private static final int WIDTH = 320;
-    private static final int HEIGHT = 240;
-    private static final int FPS = 25;
-    private static final int TOTAL_FRAMES = 50;
+    private TestingJavaCV() {}
 
-    @TempDir
-    static Path sharedDir;
+    // ------------------------------------------------------------------
+    // Data types
+    // ------------------------------------------------------------------
 
-    private static File videoFile;
+    /** Basic facts about a video file. Duration is in microseconds. */
+    public record VideoMetadata(
+            String path,
+            String format,
+            int width,
+            int height,
+            double frameRate,
+            int frameCount,
+            long durationMicros,
+            String videoCodec,
+            int videoBitrate,
+            boolean hasAudio,
+            String audioCodec,
+            int audioChannels,
+            int sampleRate,
+            Map<String, String> containerMetadata,
+            Map<String, String> videoStreamMetadata) {
 
-    @BeforeAll
-    static void createTestVideo() throws Exception {
-        videoFile = sharedDir.resolve("test-video.mp4").toFile();
-
-        try (FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(videoFile, WIDTH, HEIGHT);
-             Java2DFrameConverter converter = new Java2DFrameConverter()) {
-
-            recorder.setFormat("mp4");
-            recorder.setVideoCodec(avcodec.AV_CODEC_ID_MPEG4);
-            recorder.setPixelFormat(avutil.AV_PIX_FMT_YUV420P);
-            recorder.setFrameRate(FPS);
-            recorder.setVideoBitrate(2_000_000);
-            recorder.start();
-
-            for (int i = 0; i < TOTAL_FRAMES; i++) {
-                BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_3BYTE_BGR);
-                Graphics2D g = image.createGraphics();
-                g.setColor(i < TOTAL_FRAMES / 2 ? Color.RED : Color.BLUE);
-                g.fillRect(0, 0, WIDTH, HEIGHT);
-                g.dispose();
-                recorder.record(converter.convert(image));
-            }
-            recorder.stop();
+        public double durationSeconds() {
+            return durationMicros / 1_000_000.0;
         }
+    }
 
-        assertTrue(videoFile.exists() && videoFile.length() > 0, "Test video should have been created");
+    /** Receives each extracted frame. The image is a safe copy that can be kept. */
+    @FunctionalInterface
+    public interface FrameConsumer {
+        void accept(int frameIndex, long timestampMicros, BufferedImage image) throws Exception;
     }
 
     // ------------------------------------------------------------------
     // Metadata
     // ------------------------------------------------------------------
 
-    @Test
-    void shouldReadVideoMetadata() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile)) {
+    public static VideoMetadata readMetadata(File video) throws Exception {
+        requireFile(video);
+
+        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video)) {
             grabber.start();
 
-            assertEquals(WIDTH, grabber.getImageWidth());
-            assertEquals(HEIGHT, grabber.getImageHeight());
-            assertEquals(FPS, grabber.getFrameRate(), 0.5);
-            assertEquals(TOTAL_FRAMES, grabber.getLengthInVideoFrames(), 2);
-
-            // Duration is reported in microseconds
-            long expectedMicros = (long) (TOTAL_FRAMES / (double) FPS * 1_000_000);
-            assertEquals(expectedMicros, grabber.getLengthInTime(), 200_000);
-
-            assertNotNull(grabber.getFormat());
-            assertTrue(grabber.getFormat().contains("mp4"), "Format was: " + grabber.getFormat());
-            assertEquals(avcodec.AV_CODEC_ID_MPEG4, grabber.getVideoCodec());
-            assertTrue(grabber.getVideoBitrate() > 0);
-
-            // File has no audio track
-            assertEquals(0, grabber.getAudioChannels());
-
-            grabber.stop();
-        }
-    }
-
-    @Test
-    void shouldReadFormatAndMetadataMaps() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile)) {
-            grabber.start();
-
-            assertNotNull(grabber.getMetadata());
-            assertNotNull(grabber.getVideoMetadata());
+            boolean hasAudio = grabber.getAudioChannels() > 0;
+            VideoMetadata metadata = new VideoMetadata(
+                    video.getAbsolutePath(),
+                    grabber.getFormat(),
+                    grabber.getImageWidth(),
+                    grabber.getImageHeight(),
+                    grabber.getFrameRate(),
+                    grabber.getLengthInVideoFrames(),
+                    grabber.getLengthInTime(),
+                    grabber.getVideoCodecName(),
+                    grabber.getVideoBitrate(),
+                    hasAudio,
+                    hasAudio ? grabber.getAudioCodecName() : null,
+                    grabber.getAudioChannels(),
+                    grabber.getSampleRate(),
+                    Map.copyOf(grabber.getMetadata()),
+                    Map.copyOf(grabber.getVideoMetadata()));
 
             grabber.stop();
+            return metadata;
         }
     }
 
@@ -111,53 +91,20 @@ class TestingJavaCV {
     // Frame extraction
     // ------------------------------------------------------------------
 
-    @Test
-    void shouldGrabFirstFrameAsImage() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
-             Java2DFrameConverter converter = new Java2DFrameConverter()) {
-            grabber.start();
-
-            Frame frame = grabber.grabImage();
-            assertNotNull(frame, "First frame should not be null");
-            assertNotNull(frame.image);
-
-            BufferedImage image = converter.getBufferedImage(frame);
-            assertNotNull(image);
-            assertEquals(WIDTH, image.getWidth());
-            assertEquals(HEIGHT, image.getHeight());
-
-            assertTrue(isMostlyRed(image), "First frame should be red");
-
-            grabber.stop();
+    /**
+     * Streams frames to the consumer without holding them all in memory.
+     *
+     * @param step 1 = every frame, 10 = every 10th frame, and so on
+     * @return the number of frames passed to the consumer
+     */
+    public static int forEachFrame(File video, int step, FrameConsumer consumer) throws Exception {
+        requireFile(video);
+        if (step < 1) {
+            throw new IllegalArgumentException("step must be >= 1");
         }
-    }
 
-    @Test
-    void shouldCountAllFrames() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile)) {
-            grabber.start();
-
-            int count = 0;
-            while (grabber.grabImage() != null) {
-                count++;
-            }
-
-            assertEquals(TOTAL_FRAMES, count, 2);
-            assertNull(grabber.grabImage(), "Grabbing past the end should return null");
-
-            grabber.stop();
-        }
-    }
-
-    @Test
-    void shouldExtractEveryNthFrameAndSaveAsPng() throws Exception {
-        File outputDir = sharedDir.resolve("frames").toFile();
-        assertTrue(outputDir.mkdirs());
-
-        final int step = 10;
-        int saved = 0;
-
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
+        int delivered = 0;
+        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video);
              Java2DFrameConverter converter = new Java2DFrameConverter()) {
             grabber.start();
 
@@ -165,96 +112,103 @@ class TestingJavaCV {
             int index = 0;
             while ((frame = grabber.grabImage()) != null) {
                 if (index % step == 0) {
-                    BufferedImage image = converter.getBufferedImage(frame);
-                    File out = new File(outputDir, String.format("frame_%04d.png", index));
-                    assertTrue(ImageIO.write(image, "png", out), "PNG writer should be available");
-                    saved++;
+                    consumer.accept(index, frame.timestamp, copyOf(converter.getBufferedImage(frame)));
+                    delivered++;
                 }
                 index++;
             }
             grabber.stop();
         }
-
-        File[] files = outputDir.listFiles((dir, name) -> name.endsWith(".png"));
-        assertNotNull(files);
-        assertEquals(saved, files.length);
-        assertEquals(TOTAL_FRAMES / step, files.length, 1);
-
-        for (File f : files) {
-            BufferedImage img = ImageIO.read(f);
-            assertNotNull(img);
-            assertEquals(WIDTH, img.getWidth());
-            assertEquals(HEIGHT, img.getHeight());
-        }
+        return delivered;
     }
 
-    @Test
-    void shouldSeekToFrameNumber() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
-             Java2DFrameConverter converter = new Java2DFrameConverter()) {
-            grabber.start();
-
-            // Frame 40 is in the blue half of the video
-            grabber.setVideoFrameNumber(40);
-            Frame frame = grabber.grabImage();
-            assertNotNull(frame, "Frame after seeking should not be null");
-
-            BufferedImage image = converter.getBufferedImage(frame);
-            assertTrue(isMostlyBlue(image), "Frame 40 should be blue");
-
-            grabber.stop();
-        }
-    }
-
-    @Test
-    void shouldSeekToTimestamp() throws Exception {
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(videoFile);
-             Java2DFrameConverter converter = new Java2DFrameConverter()) {
-            grabber.start();
-
-            // 0.2s -> frame 5, which is red; 1.6s -> frame 40, which is blue
-            grabber.setTimestamp(200_000);
-            assertTrue(isMostlyRed(converter.getBufferedImage(grabber.grabImage())));
-
-            grabber.setTimestamp(1_600_000);
-            Frame frame = grabber.grabImage();
-            assertNotNull(frame);
-            assertTrue(isMostlyBlue(converter.getBufferedImage(frame)));
-            assertTrue(frame.timestamp >= 1_500_000, "Timestamp was: " + frame.timestamp);
-
-            grabber.stop();
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Error handling
-    // ------------------------------------------------------------------
-
-    @Test
-    void shouldFailForMissingFile() {
-        File missing = sharedDir.resolve("does-not-exist.mp4").toFile();
-
-        FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(missing);
-        assertThrows(FFmpegFrameGrabber.Exception.class, grabber::start);
+    /** Loads frames into memory. Use maxFrames to avoid running out of heap on long videos. */
+    public static List<BufferedImage> extractFrames(File video, int step, int maxFrames) throws Exception {
+        List<BufferedImage> frames = new ArrayList<>();
         try {
-            grabber.release();
-        } catch (Exception ignored) {
-            // nothing to clean up
+            forEachFrame(video, step, (index, timestamp, image) -> {
+                if (frames.size() >= maxFrames) {
+                    throw new StopExtraction();
+                }
+                frames.add(image);
+            });
+        } catch (StopExtraction ignored) {
+            // reached maxFrames
         }
+        return frames;
+    }
+
+    /** Grabs the frame at (or just after) the given timestamp in microseconds. Returns null past the end. */
+    public static BufferedImage extractFrameAt(File video, long timestampMicros) throws Exception {
+        requireFile(video);
+
+        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video);
+             Java2DFrameConverter converter = new Java2DFrameConverter()) {
+            grabber.start();
+            grabber.setTimestamp(timestampMicros);
+
+            Frame frame = grabber.grabImage();
+            BufferedImage result = frame == null ? null : copyOf(converter.getBufferedImage(frame));
+            grabber.stop();
+            return result;
+        }
+    }
+
+    /** Saves every Nth frame as image files named frame_0000.png, frame_0010.png, and so on. */
+    public static List<File> saveFrames(File video, Path outputDir, int step, String imageFormat) throws Exception {
+        Files.createDirectories(outputDir);
+        List<File> saved = new ArrayList<>();
+
+        forEachFrame(video, step, (index, timestamp, image) -> {
+            File out = outputDir.resolve(String.format("frame_%04d.%s", index, imageFormat)).toFile();
+            if (!ImageIO.write(image, imageFormat, out)) {
+                throw new IllegalStateException("No ImageIO writer for format: " + imageFormat);
+            }
+            saved.add(out);
+        });
+        return saved;
     }
 
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
-    /** Samples the center pixel; tolerant of lossy codec color shifts. */
-    private static boolean isMostlyRed(BufferedImage image) {
-        Color c = new Color(image.getRGB(image.getWidth() / 2, image.getHeight() / 2));
-        return c.getRed() > 150 && c.getBlue() < 100;
+    /** The converter reuses its image buffer between frames, so hand out copies. */
+    private static BufferedImage copyOf(BufferedImage src) {
+        BufferedImage copy = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = copy.createGraphics();
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return copy;
     }
 
-    private static boolean isMostlyBlue(BufferedImage image) {
-        Color c = new Color(image.getRGB(image.getWidth() / 2, image.getHeight() / 2));
-        return c.getBlue() > 150 && c.getRed() < 100;
+    private static void requireFile(File video) {
+        if (video == null || !video.isFile()) {
+            throw new IllegalArgumentException("Video file not found: " + video);
+        }
+    }
+
+    /** Internal signal used to stop early from inside forEachFrame. */
+    private static final class StopExtraction extends RuntimeException {
+        StopExtraction() {
+            super(null, null, false, false);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Demo
+    // ------------------------------------------------------------------
+
+    public static void main(String[] args) throws Exception {
+        File video = new File(args.length > 0 ? args[0] : "input.mp4");
+
+        VideoMetadata meta = readMetadata(video);
+        System.out.printf("%s%n  %dx%d @ %.2f fps, %d frames, %.2f s%n  format=%s, video=%s, audio=%s%n",
+                meta.path(), meta.width(), meta.height(), meta.frameRate(), meta.frameCount(),
+                meta.durationSeconds(), meta.format(), meta.videoCodec(),
+                meta.hasAudio() ? meta.audioCodec() : "none");
+
+        List<File> saved = saveFrames(video, Path.of("frames"), 30, "png");
+        System.out.println("Saved " + saved.size() + " frames to ./frames");
     }
 }

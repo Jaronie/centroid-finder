@@ -41,7 +41,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <mainClass>io.github.jaronie.centroidFinder.ImageSummaryApp</mainClass>
+          <mainClass>io.github.jaronie.centroidFinder.TestingJavaCV</mainClass>
         </configuration>
       </plugin>
     </plugins>
