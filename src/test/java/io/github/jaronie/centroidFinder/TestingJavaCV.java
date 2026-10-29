@@ -1,4 +1,4 @@
-package io.github;
+package io.github.jaronie.centroidFinder;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
