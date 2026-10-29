@@ -1,215 +1,139 @@
 package io.github.jaronie.centroidFinder;
+
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
 
 import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 /**
- * Extracts metadata and frame data from a video file using JavaCV (FFmpeg bundled, runs locally).
+ * A scratch harness for evaluating JavaCV as the video front-end for centroidFinder.
  *
- * Requires Java 17+ (uses records).
+ * It does two things against a real video file:
+ *
+ * 1. Opens the file and prints the metadata we would need in order to size a run:
+ *    duration, resolution, frame rate and frame count.
+ * 2. Pulls decoded frames out as BufferedImages, which is the handoff point to the
+ *    existing {@link ImageBinarizer} / {@link ImageGroupFinder} pipeline, and writes
+ *    them to disk as PNGs so the decode can be eyeballed.
+ *
+ * Unlike Jaffree, JavaCV bundles its own ffmpeg as a native library, so there is
+ * nothing to install and no subprocess -- decoding happens inside this JVM.
+ *
+ * Usage:
+ *   java TestingJavaCV [video] [fps] [maxFrames] [outputDir]
+ *
+ * Defaults: sampleInput/ensantina.mp4, 1 fps, 10 frames, frameOutput/
+ * JavaCV has no server-side frame rate filter, so the fps argument is converted into
+ * a "keep every Nth frame" step. Every frame is still decoded to get there; the step
+ * only decides which ones are converted to images and saved.
  */
-public final class TestingJavaCV {
+public class TestingJavaCV {
 
-    private TestingJavaCV() {}
+    private static final String DEFAULT_VIDEO = "sampleInput/ensantina.mp4";
+    private static final double DEFAULT_FPS = 1.0;
+    private static final int DEFAULT_MAX_FRAMES = 10;
+    private static final String DEFAULT_OUT_DIR = "frameOutput";
 
-    // ------------------------------------------------------------------
-    // Data types
-    // ------------------------------------------------------------------
+    public static void main(String[] args) {
+        File video = new File(args.length > 0 ? args[0] : DEFAULT_VIDEO);
+        double fps = args.length > 1 ? Double.parseDouble(args[1]) : DEFAULT_FPS;
+        int maxFrames = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_MAX_FRAMES;
+        Path outDir = Path.of(args.length > 3 ? args[3] : DEFAULT_OUT_DIR);
 
-    /** Basic facts about a video file. Duration is in microseconds. */
-    public record VideoMetadata(
-            String path,
-            String format,
-            int width,
-            int height,
-            double frameRate,
-            int frameCount,
-            long durationMicros,
-            String videoCodec,
-            int videoBitrate,
-            boolean hasAudio,
-            String audioCodec,
-            int audioChannels,
-            int sampleRate,
-            Map<String, String> containerMetadata,
-            Map<String, String> videoStreamMetadata) {
+        if (!video.isFile()) {
+            System.err.println("No such video file: " + video.getAbsolutePath());
+            return;
+        }
 
-        public double durationSeconds() {
-            return durationMicros / 1_000_000.0;
+        try {
+            printMetadata(video);
+            System.out.println();
+            extractFrames(video, fps, maxFrames, outDir);
+        } catch (Exception e) {
+            System.err.println("Could not read " + video + ": " + e.getMessage());
         }
     }
 
-    /** Receives each extracted frame. The image is a safe copy that can be kept. */
-    @FunctionalInterface
-    public interface FrameConsumer {
-        void accept(int frameIndex, long timestampMicros, BufferedImage image) throws Exception;
-    }
-
-    // ------------------------------------------------------------------
-    // Metadata
-    // ------------------------------------------------------------------
-
-    public static VideoMetadata readMetadata(File video) throws Exception {
-        requireFile(video);
-
+    /** Prints what the grabber reports about the container and its streams. */
+    private static void printMetadata(File video) throws Exception {
         try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video)) {
             grabber.start();
 
-            boolean hasAudio = grabber.getAudioChannels() > 0;
-            VideoMetadata metadata = new VideoMetadata(
-                    video.getAbsolutePath(),
-                    grabber.getFormat(),
-                    grabber.getImageWidth(),
-                    grabber.getImageHeight(),
-                    grabber.getFrameRate(),
-                    grabber.getLengthInVideoFrames(),
-                    grabber.getLengthInTime(),
-                    grabber.getVideoCodecName(),
-                    grabber.getVideoBitrate(),
-                    hasAudio,
-                    hasAudio ? grabber.getAudioCodecName() : null,
-                    grabber.getAudioChannels(),
-                    grabber.getSampleRate(),
-                    Map.copyOf(grabber.getMetadata()),
-                    Map.copyOf(grabber.getVideoMetadata()));
+            System.out.println("=== container ===");
+            System.out.println("File:      " + video);
+            System.out.println("Container: " + grabber.getFormat());
+            System.out.println("Duration:  " + grabber.getLengthInTime() / 1_000_000.0 + " s");
+            System.out.println("Size:      " + video.length() + " bytes");
+
+            System.out.println();
+            System.out.println("=== video stream ===");
+            System.out.println("Codec:      " + grabber.getVideoCodecName());
+            System.out.println("Resolution: " + grabber.getImageWidth() + "x" + grabber.getImageHeight());
+            System.out.println("Avg FPS:    " + grabber.getFrameRate());
+            System.out.println("Frames:     " + grabber.getLengthInVideoFrames());
+            System.out.println("Bitrate:    " + grabber.getVideoBitrate() + " bps");
+
+            System.out.println();
+            System.out.println("=== audio stream ===");
+            if (grabber.getAudioChannels() > 0) {
+                System.out.println("Codec:      " + grabber.getAudioCodecName());
+                System.out.println("Channels:   " + grabber.getAudioChannels());
+                System.out.println("Sample rate:" + grabber.getSampleRate() + " Hz");
+            } else {
+                System.out.println("none");
+            }
 
             grabber.stop();
-            return metadata;
         }
     }
 
-    // ------------------------------------------------------------------
-    // Frame extraction
-    // ------------------------------------------------------------------
-
     /**
-     * Streams frames to the consumer without holding them all in memory.
-     *
-     * @param step 1 = every frame, 10 = every 10th frame, and so on
-     * @return the number of frames passed to the consumer
+     * Decodes frames and writes every Nth one to outDir as PNGs, stopping once
+     * maxFrames have been saved.
      */
-    public static int forEachFrame(File video, int step, FrameConsumer consumer) throws Exception {
-        requireFile(video);
-        if (step < 1) {
-            throw new IllegalArgumentException("step must be >= 1");
-        }
+    private static void extractFrames(File video, double fps, int maxFrames, Path outDir)
+            throws Exception {
+        Files.createDirectories(outDir);
 
-        int delivered = 0;
         try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video);
              Java2DFrameConverter converter = new Java2DFrameConverter()) {
             grabber.start();
 
-            Frame frame;
+            // Turn a target frame rate into a "keep every Nth frame" step.
+            int step = Math.max(1, (int) Math.round(grabber.getFrameRate() / fps));
+
+            System.out.println("=== frames ===");
+            System.out.printf("Sampling %s at ~%.3f fps (every %d frames), up to %d frames -> %s%n",
+                    video, fps, step, maxFrames, outDir);
+
+            int saved = 0;
             int index = 0;
-            while ((frame = grabber.grabImage()) != null) {
+            Frame frame;
+            while (saved < maxFrames && (frame = grabber.grabImage()) != null) {
                 if (index % step == 0) {
-                    consumer.accept(index, frame.timestamp, copyOf(converter.getBufferedImage(frame)));
-                    delivered++;
+                    // The converter reuses one image buffer between calls, so this
+                    // BufferedImage is only valid until the next grabImage(). Writing it
+                    // out here is safe; keeping a reference to it would not be.
+                    BufferedImage image = converter.getBufferedImage(frame);
+
+                    saved++;
+                    File out = outDir.resolve(String.format("frame_%03d.png", saved)).toFile();
+                    ImageIO.write(image, "png", out);
+
+                    System.out.printf("  frame %3d  srcIndex=%-6d t=%7.3fs  %dx%d  type=%d  -> %s%n",
+                            saved, index, frame.timestamp / 1_000_000.0,
+                            image.getWidth(), image.getHeight(), image.getType(), out.getName());
                 }
                 index++;
             }
+
+            System.out.println("Saved " + saved + " frame(s) after decoding " + index + ".");
             grabber.stop();
         }
-        return delivered;
-    }
-
-    /** Loads frames into memory. Use maxFrames to avoid running out of heap on long videos. */
-    public static List<BufferedImage> extractFrames(File video, int step, int maxFrames) throws Exception {
-        List<BufferedImage> frames = new ArrayList<>();
-        try {
-            forEachFrame(video, step, (index, timestamp, image) -> {
-                if (frames.size() >= maxFrames) {
-                    throw new StopExtraction();
-                }
-                frames.add(image);
-            });
-        } catch (StopExtraction ignored) {
-            // reached maxFrames
-        }
-        return frames;
-    }
-
-    /** Grabs the frame at (or just after) the given timestamp in microseconds. Returns null past the end. */
-    public static BufferedImage extractFrameAt(File video, long timestampMicros) throws Exception {
-        requireFile(video);
-
-        try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(video);
-             Java2DFrameConverter converter = new Java2DFrameConverter()) {
-            grabber.start();
-            grabber.setTimestamp(timestampMicros);
-
-            Frame frame = grabber.grabImage();
-            BufferedImage result = frame == null ? null : copyOf(converter.getBufferedImage(frame));
-            grabber.stop();
-            return result;
-        }
-    }
-
-    /** Saves every Nth frame as image files named frame_0000.png, frame_0010.png, and so on. */
-    public static List<File> saveFrames(File video, Path outputDir, int step, String imageFormat) throws Exception {
-        Files.createDirectories(outputDir);
-        List<File> saved = new ArrayList<>();
-
-        forEachFrame(video, step, (index, timestamp, image) -> {
-            File out = outputDir.resolve(String.format("frame_%04d.%s", index, imageFormat)).toFile();
-            if (!ImageIO.write(image, imageFormat, out)) {
-                throw new IllegalStateException("No ImageIO writer for format: " + imageFormat);
-            }
-            saved.add(out);
-        });
-        return saved;
-    }
-
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
-
-    /** The converter reuses its image buffer between frames, so hand out copies. */
-    private static BufferedImage copyOf(BufferedImage src) {
-        BufferedImage copy = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = copy.createGraphics();
-        g.drawImage(src, 0, 0, null);
-        g.dispose();
-        return copy;
-    }
-
-    private static void requireFile(File video) {
-        if (video == null || !video.isFile()) {
-            throw new IllegalArgumentException("Video file not found: " + video);
-        }
-    }
-
-    /** Internal signal used to stop early from inside forEachFrame. */
-    private static final class StopExtraction extends RuntimeException {
-        StopExtraction() {
-            super(null, null, false, false);
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Demo
-    // ------------------------------------------------------------------
-
-    public static void main(String[] args) throws Exception {
-        File video = new File(args.length > 0 ? args[0] : "input.mp4");
-
-        VideoMetadata meta = readMetadata(video);
-        System.out.printf("%s%n  %dx%d @ %.2f fps, %d frames, %.2f s%n  format=%s, video=%s, audio=%s%n",
-                meta.path(), meta.width(), meta.height(), meta.frameRate(), meta.frameCount(),
-                meta.durationSeconds(), meta.format(), meta.videoCodec(),
-                meta.hasAudio() ? meta.audioCodec() : "none");
-
-        List<File> saved = saveFrames(video, Path.of("frames"), 30, "png");
-        System.out.println("Saved " + saved.size() + " frames to ./frames");
     }
 }
