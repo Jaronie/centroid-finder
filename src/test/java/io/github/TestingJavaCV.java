@@ -1,3 +1,4 @@
+package io.github;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 50 frames, 320x240, 25 fps (2 seconds). The first 25 frames are red,
  * the last 25 frames are blue, so extracted frames can be verified by color.
  */
-class VideoProcessingTest {
+class TestingJavaCV {
 
     private static final int WIDTH = 320;
     private static final int HEIGHT = 240;
