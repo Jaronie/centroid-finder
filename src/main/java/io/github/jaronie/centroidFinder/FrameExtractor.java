@@ -36,8 +36,11 @@ public class FrameExtractor implements Iterable<VideoFrame>, AutoCloseable {
         iterated = true;
 
         return new Iterator<>() {
-            private VideoFrame next = advance();
+            // index must be declared before next: field initializers run in
+            // declaration order, so initializing next first would advance()
+            // with index still at its default and then reset it to 0.
             private int index = 0;
+            private VideoFrame next = advance();
 
             private VideoFrame advance() {
                 try {

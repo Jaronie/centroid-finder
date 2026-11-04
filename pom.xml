@@ -10,6 +10,8 @@
   <properties>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
+    <!-- Default for `mvn exec:java`; override with -Dexec.mainClass=... -->
+    <exec.mainClass>io.github.jaronie.centroidFinder.TestingJavaCV</exec.mainClass>
   </properties>
 
   <dependencies>
@@ -41,7 +43,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <mainClass>io.github.jaronie.centroidFinder.TestingJavaCV</mainClass>
+          <mainClass>${exec.mainClass}</mainClass>
         </configuration>
       </plugin>
     </plugins>
