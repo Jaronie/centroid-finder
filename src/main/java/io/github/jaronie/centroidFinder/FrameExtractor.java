@@ -8,10 +8,10 @@ import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
 
 /**
- * Decodes a video file into TimedFrames (BufferedImage + timestamp in seconds).
+ * Decodes a video file into Frames (BufferedImage + timestamp in seconds).
  * Single-use: iterate once, then close.
  */
-public class FrameExtractor implements Iterable<TimedFrame>, AutoCloseable {
+public class FrameExtractor implements Iterable<VideoFrame>, AutoCloseable {
     private final FFmpegFrameGrabber grabber;
     private final Java2DFrameConverter converter = new Java2DFrameConverter();
     private final double fps;
@@ -31,15 +31,15 @@ public class FrameExtractor implements Iterable<TimedFrame>, AutoCloseable {
     public int height() { return grabber.getImageHeight(); }
 
     @Override
-    public Iterator<TimedFrame> iterator() {
+    public Iterator<VideoFrame> iterator() {
         if (iterated) throw new IllegalStateException("FrameExtractor can only be iterated once.");
         iterated = true;
 
         return new Iterator<>() {
-            private TimedFrame next = advance();
+            private VideoFrame next = advance();
             private int index = 0;
 
-            private TimedFrame advance() {
+            private VideoFrame advance() {
                 try {
                     Frame frame = grabber.grabImage();
                     if (frame == null) return null; // end of stream
@@ -47,7 +47,7 @@ public class FrameExtractor implements Iterable<TimedFrame>, AutoCloseable {
                     BufferedImage image = converter.getBufferedImage(frame); // may be null on bad frame
                     double seconds = grabber.getTimestamp() / 1_000_000.0;
                     if (seconds <= 0 && index > 0 && fps > 0) seconds = index / fps; // fallback
-                    return new TimedFrame(index++, seconds, image);
+                    return new VideoFrame(index++, seconds, image);
                 } catch (FFmpegFrameGrabber.Exception e) {
                     throw new IllegalStateException("Error decoding frame " + index, e);
                 }
@@ -55,9 +55,9 @@ public class FrameExtractor implements Iterable<TimedFrame>, AutoCloseable {
 
             @Override public boolean hasNext() { return next != null; }
 
-            @Override public TimedFrame next() {
+            @Override public VideoFrame next() {
                 if (next == null) throw new NoSuchElementException();
-                TimedFrame current = next;
+                VideoFrame current = next;
                 next = advance();
                 return current;
             }
