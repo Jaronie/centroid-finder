@@ -20,7 +20,7 @@ public class FrameValidator {
         this.expectedHeight = expectedHeight;
     }
 
-    public ValidationResult validate(TimedFrame frame) {
+    public ValidationResult validate(VideoFrame frame) {
         if (frame == null) return ValidationResult.fail("frame is null");
         BufferedImage image = frame.image();
         if (image == null) return ValidationResult.fail("image is null");
