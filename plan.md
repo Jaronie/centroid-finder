@@ -1,4 +1,4 @@
-Plan for implementing JavaCV
+Plan for implementing JavaCV - Seadrah & Jaron
 
 - We decided to go on with JavaCV after noticing how it works with extracting video metadata, frames, etc.
 
@@ -23,7 +23,7 @@ The class that performs the logic to find the centroid we're looking for could m
 
 The last class is responsible for writing out the CSV in the three columns:
 seconds / x / y /
-It'll be similar to ImageSummaryApp, but I think different enough to be written as its own file - also allows for modular use in the program for images and videos
+It'll be similar to ImageSummaryApp, but I think different enough to be written as its own file - also allows for modular use in the program for images and videos 
 
 For centroid recognition, like finding the biggest centroids between multiple in the color threshold - I think the thumbs war approach where we test two centroids at a time and in comparison the biggest one is the chosen centroid to track. My only question: How would this work for videos that contain centroids for growing sizes? 
 
