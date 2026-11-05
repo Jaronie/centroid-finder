@@ -12,6 +12,8 @@
     <maven.compiler.target>21</maven.compiler.target>
     <!-- Default for `mvn exec:java`; override with -Dexec.mainClass=... -->
     <exec.mainClass>io.github.jaronie.centroidFinder.TestingJavaCV</exec.mainClass>
+    <!-- Main-Class written into the executable jar's manifest. -->
+    <jar.mainClass>io.github.jaronie.centroidFinder.VideoSummaryApp</jar.mainClass>
   </properties>
 
   <dependencies>
@@ -37,6 +39,13 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.3</version>
       </plugin>
+      <!-- Jar: pinned so the build does not fall back to Maven's very old
+           default version of this plugin. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
       <!-- Exec -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
@@ -45,6 +54,43 @@
         <configuration>
           <mainClass>${exec.mainClass}</mainClass>
         </configuration>
+      </plugin>
+      <!--
+        Assembly: bundles the classes and every dependency into one runnable
+        jar at target/centroidFinder.jar, built during `mvn package`.
+
+        JavaCV pulls in native binaries for every supported OS, so an
+        unrestricted build is around 700 MB. Limit it to the machines you
+        actually target:
+          mvn package -Djavacpp.platform=linux-x86_64
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.7.1</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+            <manifest>
+              <mainClass>${jar.mainClass}</mainClass>
+            </manifest>
+          </archive>
+          <!-- target/centroidFinder.jar rather than a name with the version
+               and "-jar-with-dependencies" tacked on. -->
+          <finalName>centroidFinder</finalName>
+          <appendAssemblyId>false</appendAssemblyId>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-executable-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
