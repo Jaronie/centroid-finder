@@ -27,3 +27,4 @@ It'll be similar to ImageSummaryApp, but I think different enough to be written 
 
 For centroid recognition, like finding the biggest centroids between multiple in the color threshold - I think the thumbs war approach where we test two centroids at a time and in comparison the biggest one is the chosen centroid to track. My only question: How would this work for videos that contain centroids for growing sizes? 
 
+For testing, we looked at the csv and compared it to the movement in the video, and observed that the x and y values changed in accordance with the movement of the salamander at the correct times in the video (y increasing as the salamander moved down, x increasing as the salamander moved to the right). For the color, it would have to be attuned relatively dark; darker than all of the background except the darkest spot at the very top and the salamander. Top part could be cropped out altogether to avoid issues.
