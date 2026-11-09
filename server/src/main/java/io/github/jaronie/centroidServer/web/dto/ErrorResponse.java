@@ -1,6 +1,6 @@
 package io.github.jaronie.centroidServer.web.dto;
 
-**
+/**
  * Every error body in the spec: {"error": "..."}.
  *
  * <p>A record rather than a Map so the compiler checks the field name. In
