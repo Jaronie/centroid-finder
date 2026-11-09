@@ -1,84 +1,96 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
-  <!--
-    Spring Boot projects inherit from spring-boot-starter-parent. That parent
-    pins compatible versions for every Spring dependency, which is why the
-    <dependencies> below carry no <version> tags.
-  -->
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.1.2</version>
-    <relativePath/> <!-- empty: look the parent up in the repository, not on disk -->
-  </parent>
-
   <groupId>io.github.jaronie</groupId>
-  <artifactId>centroidServer</artifactId>
+  <artifactId>centroidFinder</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>centroidServer</name>
-  <description>HTTP API over the centroidFinder video processor</description>
 
   <properties>
-    <!-- Matches the processor module. Spring Boot 4 needs 17 or later. -->
-    <java.version>21</java.version>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <!-- Default for `mvn exec:java`; override with -Dexec.mainClass=... -->
+    <exec.mainClass>io.github.jaronie.centroidFinder.TestingJavaCV</exec.mainClass>
+    <!-- Main-Class written into the executable jar's manifest. -->
+    <jar.mainClass>io.github.jaronie.centroidFinder.VideoSummaryApp</jar.mainClass>
   </properties>
 
   <dependencies>
-    <!--
-      Spring MVC + an embedded Tomcat. This is the only runtime dependency the
-      server needs.
-
-      NOTE: tutorials will tell you to use spring-boot-starter-web. As of
-      Spring Boot 4 that artifact is deprecated in favour of this one. The old
-      name still resolves and still works, but prefer -webmvc in new code.
-    -->
+    <!-- JUnit Jupiter -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc</artifactId>
-    </dependency>
-
-    <!--
-      DELIBERATELY ABSENT: io.github.jaronie:centroidFinder.
-
-      The assignment forbids the server containing graph-search logic. Because
-      both sides are Java we *could* add the processor as a dependency and call
-      VideoPipeline directly, which is exactly what must not happen. The server
-      reaches the processor only by launching centroidFinder.jar as a separate
-      OS process via ProcessBuilder. Leaving this dependency out is what makes
-      the rule impossible to break by accident: the processor's classes simply
-      are not on the classpath.
-    -->
-
-    <!-- Test scope only: JUnit 5, AssertJ, Mockito, and Spring's test support. -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.0</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Needed for @WebMvcTest / MockMvc, which moved to its own module in Boot 4. -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc-test</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <groupId>org.bytedeco</groupId>
+    <artifactId>javacv-platform</artifactId>
+    <version>1.5.14</version>
+  </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <!-- Surefire -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.3</version>
+      </plugin>
+      <!-- Jar: pinned so the build does not fall back to Maven's very old
+           default version of this plugin. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
+      <!-- Exec -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.0</version>
+        <configuration>
+          <mainClass>${exec.mainClass}</mainClass>
+        </configuration>
+      </plugin>
       <!--
-        Adds `mvn spring-boot:run` and makes `mvn package` produce an
-        executable fat jar at target/centroidServer-1.0-SNAPSHOT.jar.
-        Version comes from the parent.
+        Assembly: bundles the classes and every dependency into one runnable
+        jar at target/centroidFinder.jar, built during `mvn package`.
+
+        JavaCV pulls in native binaries for every supported OS, so an
+        unrestricted build is around 700 MB. Limit it to the machines you
+        actually target:
+          mvn package -Djavacpp.platform=linux-x86_64
       -->
       <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.7.1</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+            <manifest>
+              <mainClass>${jar.mainClass}</mainClass>
+            </manifest>
+          </archive>
+          <!-- target/centroidFinder.jar rather than a name with the version
+               and "-jar-with-dependencies" tacked on. -->
+          <finalName>centroidFinder</finalName>
+          <appendAssemblyId>false</appendAssemblyId>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-executable-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
