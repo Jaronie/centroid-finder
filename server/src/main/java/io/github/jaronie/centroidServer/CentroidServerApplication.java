@@ -2,6 +2,8 @@ package io.github.jaronie.centroidServer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+
 
 /**
  * Entry point for the centroidFinder HTTP API.
@@ -13,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * in sub-packages of {@code io.github.jaronie.centroidServer}, not beside it.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class CentroidServerApplication {
 
     public static void main(String[] args) {
