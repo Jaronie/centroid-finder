@@ -1,4 +1,5 @@
 target
+.env
 
 # Compiled class file
 *.class
@@ -26,4 +27,13 @@ hs_err_pid*
 replay_pid*
 
 frames/
-sampleInput/
+
+# Generated output from running the tools at the repo root
+/out.csv
+/groups.csv
+/binarized.png
+
+# Server runtime data: source videos, generated CSVs, cached thumbnails
+server/data/
+
+
