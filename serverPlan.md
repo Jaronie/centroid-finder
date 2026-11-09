@@ -130,4 +130,4 @@ and read by request threads, so needs to be a `ConcurrentHashMap`.
 
 ## 6. Testing approach
 
-HTTP Requests with postman, implementing tests in BootStrap + Maven.
+HTTP Requests with curl, implementing tests in BootStrap + Maven.
