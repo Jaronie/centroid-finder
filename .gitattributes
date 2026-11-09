@@ -1,0 +1,32 @@
+# Line-ending policy for this repository.
+#
+# Why this file exists: before it, processor/ and the root docs were stored with
+# CRLF while server/ was stored with LF. A Windows checkout then rewrote every
+# line of every file, so merges between the two of us conflicted on whole files
+# instead of on the lines we had each actually edited. That is how the merge in
+# f109ec5 was able to delete the entire processor without it looking obviously
+# wrong.
+#
+# "text=auto eol=lf" means: store every text file with LF in git, and check it
+# out with LF on every machine, Windows included. Java, Maven, VS Code and Git
+# Bash all handle LF without complaint, and this way no tool ever has an excuse
+# to rewrite a file it did not touch.
+* text=auto eol=lf
+
+# Binary files: never examined for line endings, never converted. text=auto
+# usually detects these on its own, but being explicit means a corrupt image or
+# a truncated jar can never be blamed on normalization.
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.jar  binary
+*.zip  binary
+*.gz   binary
+*.mp4  binary
+*.mov  binary
+*.avi  binary
+*.mkv  binary
+*.webm binary
