@@ -36,4 +36,12 @@ public record AppProperties(
     public Path jarFile() {
         return Path.of(jarPath).toAbsolutePath().normalize();
     }
+
+    public Path videoFile(String filename) {
+        return videosDir.resolve(filename).toAbsolutePath().normalize();
+    }
+
+    public Path thumbnailFile(String filename) {
+        return thumbnailCacheDir.resolve(filename + ".jpg").toAbsolutePath().normalize();
+    }
 }
