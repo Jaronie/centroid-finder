@@ -70,4 +70,10 @@ public class VideoLibraryService {
         String lower = filename.toLowerCase(Locale.ROOT);
         return VIDEO_EXTENSIONS.stream().anyMatch(lower::endsWith);
     }
+
+    public boolean isKnownVideo(String filename) {
+        if(filename == null || filename.isBlank()) return false;
+
+        return listVideoNames();
+    }
 }
