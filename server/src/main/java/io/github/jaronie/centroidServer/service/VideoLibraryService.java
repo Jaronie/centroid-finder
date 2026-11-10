@@ -74,6 +74,6 @@ public class VideoLibraryService {
     public boolean isKnownVideo(String filename) {
         if(filename == null || filename.isBlank()) return false;
 
-        return listVideoNames();
+        return listVideoNames().contains(filename);
     }
 }
