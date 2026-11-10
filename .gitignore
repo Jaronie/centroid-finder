@@ -32,6 +32,7 @@ frames/
 /out.csv
 /groups.csv
 /binarized.png
+/thumb.jpg
 
 # Server runtime data: source videos, generated CSVs, cached thumbnails
 server/data/
