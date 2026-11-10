@@ -28,8 +28,14 @@ public class ThumbnailService {
     }
 
     public byte[] thumbnailFor(String filename) {
-
-        if (!videoLibrary.isKnownVideo(filename)) {
+        boolean known;
+        try {
+            known = videoLibrary.isKnownVideo(filename);
+        } catch (ApiException e) {
+            log.error("Could not list videos while checking {}", filename, e);
+            throw ApiException.serverError(ERROR, e);
+        }
+        if (!known){
             log.warn("Thumbnail requested for unknown video: {}", filename);
             throw ApiException.serverError(ERROR);
         }
