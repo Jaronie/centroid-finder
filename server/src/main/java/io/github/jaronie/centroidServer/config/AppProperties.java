@@ -44,4 +44,19 @@ public record AppProperties(
     public Path thumbnailFile(String filename) {
         return thumbnailCacheDir.resolve(filename + ".jpg").toAbsolutePath().normalize();
     }
+
+    /** Where the processor should write this video's CSV. */
+    public Path resultFile(String filename) {
+        return resultsDir.resolve(filename + ".csv").toAbsolutePath().normalize();
+    }
+
+    /** The public URL of that CSV, which is what a finished job reports. */
+    public String resultUrl(String filename) {
+        return "/results/" + filename + ".csv";
+    }
+
+    public Path jobLogFile(String jobId) {
+        return logsDir.resolve(jobId + ".log").toAbsolutePath().normalize();
+    }
+
 }
