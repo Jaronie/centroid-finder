@@ -25,8 +25,6 @@ Add an automated test baseline for the server. The server source files are not p
 
 Add tests for malformed CLI arguments and invalid video/image files in [VideoSummaryApp.java](/home/seadrah/Documents/SDEV 334/centroidFinder/src/main/java/io/github/jaronie/centroidFinder/VideoSummaryApp.java) and [ImageSummaryApp.java](/home/seadrah/Documents/SDEV 334/centroidFinder/src/main/java/io/github/jaronie/centroidFinder/ImageSummaryApp.java).
 
-[CentroidCsvWriterTests.java](/home/seadrah/Documents/SDEV 334/centroidFinder/src/test/java/io/github/jaronie/centroidFinder/CentroidCsvWriterTests.java) is effectively empty. Cover headers, missing directories, overwrite behavior, rounding, I/O failures, and close/flush behavior.
-
 The system only selects the largest connected component. That can misidentify borders, shadows, letterboxing, or another bright/dark object. The crop feature helps, but tracking should also consider:
 - Maximum component size.
 - Minimum component size.
