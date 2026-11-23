@@ -10,13 +10,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.HttpStatus;
 
 import io.github.jaronie.centroidServer.config.AppProperties;
 import io.github.jaronie.centroidServer.exception.ApiException;
+import io.github.jaronie.centroidServer.support.TestEnv;
 
 /**
  * Runs the real ffmpeg against the real test clip. Mocking the subprocess would
@@ -26,14 +29,22 @@ import io.github.jaronie.centroidServer.exception.ApiException;
  *
  * <p>VideoLibraryService IS mocked, so these tests do not depend on the videos
  * directory's real contents.
+ *
+ * <p>Tagged "integration" because of that real ffmpeg: every test here needs
+ * the binary on PATH, so the class skips as a whole where it is absent rather
+ * than reporting eight failures that say nothing about the server. The clip is
+ * a committed classpath resource, so it is never the missing piece.
  */
+@Tag("integration")
 class ThumbnailServiceTest {
-
-    /** The clip generated for manual testing: 3s, 320x240, red square centred. */
-    private static final Path REAL_CLIP = Path.of("data/videos/testclip.mp4");
 
     @TempDir
     Path tmp;
+
+    @BeforeEach
+    void requireFfmpeg() {
+        TestEnv.requireFfmpeg();
+    }
 
     private Path videosDir;
     private Path cacheDir;
@@ -49,7 +60,7 @@ class ThumbnailServiceTest {
     }
 
     private void copyRealClipAs(String name) throws IOException {
-        Files.copy(REAL_CLIP, videosDir.resolve(name));
+        TestEnv.copyTestClip(videosDir.resolve(name));
         when(library.isKnownVideo(name)).thenReturn(true);
     }
 
