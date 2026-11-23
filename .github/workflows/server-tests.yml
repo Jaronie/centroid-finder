@@ -160,9 +160,14 @@ jobs:
           )
           COUNT=${SUMMARY% *}
           SKIPPED=${SUMMARY#* }
-          echo "Integration tests executed: $COUNT, skipped: $SKIPPED"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No integration tests ran. Check the @Tag(\"integration\") selection."
+          # A floor, not just "more than zero". When an assumption fails in
+          # @BeforeAll the whole class is aborted, and an aborted class leaves
+          # no report at all -- it is invisible rather than skipped. The
+          # skipped-count check below cannot see that; a count floor can.
+          MINIMUM=19
+          echo "Integration tests executed: $COUNT (minimum $MINIMUM), skipped: $SKIPPED"
+          if [ "$COUNT" -lt "$MINIMUM" ]; then
+            echo "::error::Only $COUNT integration tests ran; expected at least $MINIMUM. A whole class was probably aborted for a missing prerequisite."
             exit 1
           fi
           if [ "$SKIPPED" -ne 0 ]; then
