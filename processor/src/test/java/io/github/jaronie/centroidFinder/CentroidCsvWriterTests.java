@@ -10,8 +10,12 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * Verifies the CSV format written to temporary files, including the optional
+ * header, timestamp precision, coordinates, and missing-centroid sentinel.
+ * Closing the writer before reading also checks that buffered output is flushed.
+ */
 public class CentroidCsvWriterTests {
-
     @TempDir
     Path tempDir;
 
