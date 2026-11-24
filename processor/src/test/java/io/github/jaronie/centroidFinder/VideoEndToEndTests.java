@@ -56,6 +56,7 @@ public class VideoEndToEndTests {
             String[] columns = rows.get(i).split(",");
             assertEquals(3, columns.length);
             assertEquals(String.format(Locale.ROOT, "%.3f", i / 10.0), columns[0]);
+            // MPEG-4 is lossy, so allow a small centroid shift from compression.
             assertTrue(Math.abs(Integer.parseInt(columns[1]) - expectedX[i]) <= 2,
                     "unexpected centroid x in row " + i + ": " + rows.get(i));
             assertTrue(Math.abs(Integer.parseInt(columns[2]) - 54) <= 2,
@@ -78,6 +79,7 @@ public class VideoEndToEndTests {
                     graphics.setColor(Color.BLACK);
                     graphics.fillRect(0, 0, WIDTH, HEIGHT);
                     graphics.setColor(Color.WHITE);
+                    // This larger stripe is outside the configured crop; the target square should win.
                     graphics.fillRect(0, 0, WIDTH, 9);
                     graphics.fillRect(40 + i * 20, 45, SQUARE_SIZE, SQUARE_SIZE);
                 } finally {

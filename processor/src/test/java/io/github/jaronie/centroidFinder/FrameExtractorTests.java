@@ -193,8 +193,6 @@ public class FrameExtractorTests {
         // bright region's position instead: the square starts at the left edge
         // and ends further right.
         try (FrameExtractor extractor = new FrameExtractor(videoPath.toString())) {
-            // Measured during iteration, not from a collected list: the
-            // converter's image buffer is reused frame to frame.
             List<Double> centers = new ArrayList<>();
             for (VideoFrame frame : extractor) {
                 centers.add(brightCenterX(frame.image()));

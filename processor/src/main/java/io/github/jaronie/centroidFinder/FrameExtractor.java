@@ -49,6 +49,7 @@ public class FrameExtractor implements Iterable<VideoFrame>, AutoCloseable {
                     if (frame == null) return null; // end of stream
 
                     BufferedImage converted = converter.getBufferedImage(frame);
+                    // The converter reuses its image buffer when the next frame is decoded.
                     BufferedImage image = converted == null ? null : copyOf(converted);
                     double seconds = grabber.getTimestamp() / 1_000_000.0;
                     if (seconds <= 0 && index > 0 && fps > 0) seconds = index / fps; // fallback
