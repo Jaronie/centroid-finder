@@ -1,0 +1,188 @@
+name: Server Tests
+
+# The automated baseline for the server module.
+#
+# Two jobs rather than one, because the server's tests divide cleanly by what
+# they need from the machine:
+#
+#   unit        - needs nothing but a JDK. Runs in well under a minute, so it
+#                 is the gate that gives fast feedback on every push.
+#   integration - needs ffmpeg and the processor's ~100 MB fat jar, which has
+#                 to be built from source because it is gitignored. Slower and
+#                 heavier, so it runs after unit passes.
+#
+# The split is enforced by JUnit tags, not by guessing at class names: tests
+# requiring an external binary carry @Tag("integration"). See
+# server/src/test/java/io/github/jaronie/centroidServer/support/TestEnv.java.
+
+on:
+  push:
+    branches: [main, server]
+  pull_request:
+    branches: [main, server]
+  # Lets the integration job be re-run by hand after a processor change
+  # without pushing an empty commit.
+  workflow_dispatch:
+
+# A new push makes an in-flight run of the same branch irrelevant. Cancelling
+# it matters more than usual here: the integration job holds a runner for
+# several minutes while it builds the processor jar.
+concurrency:
+  group: server-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests (no external dependencies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # 21, not a newer JDK: it is what server/pom.xml targets via
+          # java.version, and what the processor module is built with.
+          java-version: '21'
+          # Caches ~/.m2/repository keyed on the pom files. Spring Boot pulls
+          # a lot of jars; without this every run re-downloads them.
+          cache: maven
+
+      - name: Run unit tests
+        working-directory: server
+        # This must pass on a bare runner: no ffmpeg, no processor jar, and no
+        # server/data directory. If it ever needs one of those, the test
+        # belongs in the integration job instead.
+        # `clean` so the report-parsing gate below cannot read stale XML from an
+        # earlier run: surefire overwrites reports per class but never removes
+        # ones whose class did not run this time.
+        run: mvn -B --no-transfer-progress clean test -Dtest.excludedGroups=integration
+
+      - name: Check the suite actually ran
+        if: always()
+        working-directory: server
+        # A suite that silently stops running is the failure mode a green tick
+        # hides. Surefire reports zero tests as success, so the count is
+        # asserted explicitly. Raise the floor as the suite grows.
+        run: |
+          set -euo pipefail
+          MINIMUM=60
+          COUNT=$(
+            find target/surefire-reports -name 'TEST-*.xml' -print0 2>/dev/null \
+              | xargs -0 --no-run-if-empty sed -n 's/.*<testsuite[^>]* tests="\([0-9]*\)".*/\1/p' \
+              | awk '{ total += $1 } END { print total + 0 }'
+          )
+          echo "Unit tests executed: $COUNT (minimum $MINIMUM)"
+          if [ "$COUNT" -lt "$MINIMUM" ]; then
+            echo "::error::Only $COUNT tests ran; expected at least $MINIMUM. Did a module stop being picked up?"
+            exit 1
+          fi
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: server/target/surefire-reports/
+          if-no-files-found: warn
+
+  integration:
+    name: Integration tests (ffmpeg + processor jar)
+    runs-on: ubuntu-latest
+    # Pointless to spend minutes building the processor if the fast tests are
+    # already red.
+    needs: unit
+    # Generous: the first uncached run downloads JavaCV's native artifacts.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install ffmpeg
+        # Present on the current ubuntu-latest image, but installed explicitly
+        # rather than relied on: the thumbnail tests would skip themselves if
+        # it vanished from a future image, and this job exists precisely to
+        # NOT skip them.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Build the processor jar
+        working-directory: processor
+        # -Djavacpp.platform limits JavaCV to the Linux natives. Without it
+        # Maven fetches every supported platform, which is gigabytes.
+        # Tests are skipped here on purpose: the processor's own suite is the
+        # other workflow's job. All that is wanted is the artifact.
+        run: |
+          mvn -B --no-transfer-progress -DskipTests package -Djavacpp.platform=linux-x86_64
+          ls -lh target/centroidFinder.jar
+
+      - name: Run integration tests
+        working-directory: server
+        # The absolute path matters. TestEnv's default is relative to the
+        # server module, which happens to be right in a full checkout, but
+        # being explicit means a failure here is a real failure and never a
+        # silently skipped test.
+        run: |
+          mvn -B --no-transfer-progress clean test \
+            -Dtest.groups=integration \
+            -Dcentroid.processor.jar="$GITHUB_WORKSPACE/processor/target/centroidFinder.jar"
+
+      - name: Fail if any integration test was skipped
+        if: always()
+        working-directory: server
+        # The point of this job. These tests skip themselves when a
+        # prerequisite is missing, which is right on a developer machine and
+        # wrong here -- a skip means the environment was not set up, and
+        # without this check it would read as a pass.
+        run: |
+          set -euo pipefail
+          REPORTS=$(find target/surefire-reports -name 'TEST-*.xml' 2>/dev/null | wc -l)
+          if [ "$REPORTS" -eq 0 ]; then
+            echo "::error::No surefire reports found; the integration tests did not run at all."
+            exit 1
+          fi
+          SUMMARY=$(
+            find target/surefire-reports -name 'TEST-*.xml' -print0 \
+              | xargs -0 sed -n 's/.*<testsuite[^>]* tests="\([0-9]*\)"[^>]* skipped="\([0-9]*\)".*/\1 \2/p' \
+              | awk '{ tests += $1; skipped += $2 } END { print (tests + 0), (skipped + 0) }'
+          )
+          COUNT=${SUMMARY% *}
+          SKIPPED=${SUMMARY#* }
+          # A floor, not just "more than zero". When an assumption fails in
+          # @BeforeAll the whole class is aborted, and an aborted class leaves
+          # no report at all -- it is invisible rather than skipped. The
+          # skipped-count check below cannot see that; a count floor can.
+          MINIMUM=19
+          echo "Integration tests executed: $COUNT (minimum $MINIMUM), skipped: $SKIPPED"
+          if [ "$COUNT" -lt "$MINIMUM" ]; then
+            echo "::error::Only $COUNT integration tests ran; expected at least $MINIMUM. A whole class was probably aborted for a missing prerequisite."
+            exit 1
+          fi
+          if [ "$SKIPPED" -ne 0 ]; then
+            echo "::error::$SKIPPED integration test(s) skipped, which means ffmpeg or the processor jar was missing."
+            exit 1
+          fi
+
+      - name: Upload test reports and job logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          # The per-job logs are the only record of what the processor
+          # subprocess printed, which is where a failure here gets diagnosed.
+          path: |
+            server/target/surefire-reports/
+            server/data/logs/
+          if-no-files-found: warn
