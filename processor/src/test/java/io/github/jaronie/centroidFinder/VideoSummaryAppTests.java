@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/** CLI-level checks for VideoSummaryApp diagnostics and invalid video input. */
 public class VideoSummaryAppTests {
 
     @TempDir

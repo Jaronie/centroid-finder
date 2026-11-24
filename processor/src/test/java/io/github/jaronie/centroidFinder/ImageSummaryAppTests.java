@@ -15,6 +15,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/** CLI-level checks for ImageSummaryApp diagnostics and unsupported inputs. */
 public class ImageSummaryAppTests {
 
     @TempDir
