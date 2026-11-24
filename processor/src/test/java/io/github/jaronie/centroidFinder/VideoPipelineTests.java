@@ -359,26 +359,53 @@ public class VideoPipelineTests {
     }
 
     /**
-     * Documents current behavior, not desired behavior: a null element in the
-     * stream is reported invalid by the validator, but the pipeline then logs
-     * frame.index() on the null reference and throws. A real FrameExtractor
-     * never yields null, so this is reachable only from a hand-built stream --
-     * but the "frame is null" branch of FrameValidator is unusable until
-     * VideoPipeline stops dereferencing the frame it just rejected.
+     * A null element in the stream is counted as an invalid frame and skipped.
+     *
+     * <p>This used to throw a NullPointerException: the validator correctly
+     * reported "frame is null", and the pipeline then called frame.index() on
+     * the reference it had just rejected, which made that branch of
+     * FrameValidator unreachable in practice.
+     *
+     * <p>It writes no row, unlike every other invalid frame. A row is keyed on
+     * seconds(), and a null frame has no timestamp to offer -- so there is
+     * nothing to write that would not be invented.
      */
     @Test
-    public void testNullFrameInTheStreamCurrentlyThrows() throws IOException {
-        Path csvPath = tempDir.resolve("null-frame.csv");
+    public void testNullFrameIsCountedInvalidAndSkipped() throws IOException {
+        Result result = run(Arrays.asList((VideoFrame) null), new ArrayList<>(), false);
 
-        try (CentroidCsvWriter csv = new CentroidCsvWriter(csvPath, false)) {
-            VideoPipeline pipeline = new VideoPipeline(
-                new StubGroupFinder(new ArrayList<>()),
-                new FrameValidator(WIDTH, HEIGHT),
-                csv
-            );
+        assertAll(
+            () -> assertEquals(new VideoPipeline.Summary(1, 1, 0), result.summary()),
+            () -> assertEquals(List.of(), result.lines()),
+            () -> assertEquals(0, result.groupFinderCalls())
+        );
+    }
 
-            assertThrows(NullPointerException.class, () -> pipeline.run(Arrays.asList((VideoFrame) null)));
-        }
+    /**
+     * The surrounding frames must be unaffected: a null in the middle of a
+     * stream is skipped, and the frames after it still land on the time axis.
+     */
+    @Test
+    public void testNullFrameDoesNotDisturbTheFramesAroundIt() throws IOException {
+        List<VideoFrame> frames = Arrays.asList(
+            validFrame(0, 0.0),
+            null,
+            validFrame(2, 1.0)
+        );
+        List<List<Group>> answers = List.of(
+            List.of(group(4, 1, 2)),
+            List.of(group(4, 3, 1))
+        );
+
+        Result result = run(frames, answers, false);
+
+        assertAll(
+            () -> assertEquals(new VideoPipeline.Summary(3, 1, 0), result.summary()),
+            () -> assertEquals(List.of("0.000,1,2", "1.000,3,1"), result.lines()),
+            // The stub is scripted positionally, so this also proves the null
+            // frame never reached it -- a stray call would shift every answer.
+            () -> assertEquals(2, result.groupFinderCalls())
+        );
     }
 
     // ---------- Summary record ----------
