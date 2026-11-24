@@ -1,49 +1,80 @@
-name: JUnit Tests
+name: Processor Tests
+
+# The processor module's suite (the centroid-finding algorithms themselves).
+# The server module is covered by server-tests.yml.
+#
+# This workflow previously compiled `src/*.java` by hand with javac and ran the
+# junit-platform-console jar from lib/. That stopped working when the repo was
+# split into processor/ and server/: there is no longer a src/ directory at the
+# repository root, so the compile step failed with "file not found: src/*.java"
+# on every run. It is Maven-driven now, which also means the CI run and a local
+# `mvn test` execute the same thing.
 
 on:
+  push:
+    branches: [main, server]
   pull_request:
-    branches:
-      - main
+    branches: [main, server]
+  workflow_dispatch:
+
+concurrency:
+  group: processor-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: Processor tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '23'
+          distribution: temurin
+          # 21, matching processor/pom.xml. The old workflow asked for 23,
+          # which worked only because javac was never reaching any sources.
+          java-version: '21'
+          cache: maven
 
-      - name: Compile
+      - name: Run tests
+        working-directory: processor
+        # -Djavacpp.platform limits JavaCV to the Linux natives. Without it
+        # Maven downloads every supported platform's natives -- gigabytes, for
+        # no benefit on a Linux runner.
+        #
+        # `clean` so the report-parsing gate below cannot read stale XML.
+        run: mvn -B --no-transfer-progress clean test -Djavacpp.platform=linux-x86_64
+
+      - name: Verify the suite actually ran
+        if: always()
+        working-directory: processor
+        # Surefire treats "zero tests found" as success, so a selection or
+        # layout mistake would otherwise show a green tick having run nothing.
+        # That is exactly how the old javac-based workflow managed to look
+        # healthy while compiling no files at all.
         run: |
-          mkdir -p src
-          javac -cp lib/junit-platform-console-standalone-6.0.3.jar src/*.java
-
-      - name: Run and Verify Tests
-        run: |
-          # Ensure that the pipeline fails if any command fails.
-          set -o pipefail
-          # Run tests and tee output to both the console and a file.
-          java -jar lib/junit-platform-console-standalone-6.0.3.jar -cp src --scan-classpath | tee test-results.txt
-          # Capture the exit code of the java command.
-          exit_code=${PIPESTATUS[0]}
-          if [ $exit_code -ne 0 ]; then
-            echo "❌ Unit tests failed with exit code $exit_code."
-            exit $exit_code
-          fi
-
-          # Extract the number of tests run from the output.
-          TEST_COUNT=$(grep -oP '\d+(?= tests found)' test-results.txt | head -n 1)
-          MIN_TESTS=15
-
-          if [ "$TEST_COUNT" -lt "$MIN_TESTS" ]; then
-            echo "❌ Only $TEST_COUNT tests were run. At least $MIN_TESTS tests are required. Please write more unit tests"
+          set -euo pipefail
+          MINIMUM=100
+          COUNT=$(
+            find target/surefire-reports -name 'TEST-*.xml' -print0 2>/dev/null \
+              | xargs -0 --no-run-if-empty sed -n 's/.*<testsuite[^>]* tests="\([0-9]*\)".*/\1/p' \
+              | awk '{ total += $1 } END { print total + 0 }'
+          )
+          echo "Tests executed: $COUNT (minimum $MINIMUM)"
+          if [ "$COUNT" -lt "$MINIMUM" ]; then
+            echo "::error::Only $COUNT tests ran; expected at least $MINIMUM."
             exit 1
           fi
+          echo "✅ All processor tests passed and $COUNT tests were executed."
 
-          echo "✅ All unit tests passed and $TEST_COUNT tests were executed."
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: processor-test-reports
+          path: processor/target/surefire-reports/
+          if-no-files-found: warn

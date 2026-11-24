@@ -23,13 +23,16 @@ import javax.imageio.ImageIO;
  * 5. Finds connected groups of white pixels in the binary image.
  *    Pixels are connected vertically and horizontally (not diagonally).
  *    For each group, the size (number of pixels) and the centroid (calculated using integer division) are computed.
- * 6. Writes a CSV file named "groups.csv" containing one row per group in the format "size,x,y".
+ * 6. Selects the largest group of at least 100 pixels and writes it to "groups.csv" as "size,x,y".
+ *    If no group meets the minimum size, the CSV is empty.
  *    Coordinates follow the convention: (x:0, y:0) is the top-left, with x increasing to the right and y increasing downward.
  * 
  * Usage:
  *   java ImageSummaryApp <input_image> <hex_target_color> <threshold>
  */
 public class ImageSummaryApp {
+    private static final int MIN_COMPONENT_SIZE_PIXELS = 100;
+
     public static void main(String[] args) {
         if (args.length < 3) {
             System.out.println("Usage: java ImageSummaryApp <input_image> <hex_target_color> <threshold>");
@@ -93,12 +96,11 @@ public class ImageSummaryApp {
         // The BinarizingImageGroupFinder is expected to internally binarize the image,
         // then locate connected groups of white pixels.
         List<Group> groups = groupFinder.findConnectedGroups(inputImage);
+        LargestComponentSelector selector = new LargestComponentSelector(MIN_COMPONENT_SIZE_PIXELS);
         
-        // Write the groups information to a CSV file "groups.csv".
+        // Write only the selected component; no row means none met the minimum size.
         try (PrintWriter writer = new PrintWriter("groups.csv")) {
-            for (Group group : groups) {
-                writer.println(group.toCsvRow());
-            }
+            selector.select(groups).ifPresent(group -> writer.println(group.toCsvRow()));
             System.out.println("Groups summary saved as groups.csv");
         } catch (Exception e) {
             System.err.println("Error writing groups.csv");

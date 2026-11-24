@@ -8,12 +8,14 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.github.jaronie.centroidServer.config.AppProperties;
 import io.github.jaronie.centroidServer.model.Job;
 import io.github.jaronie.centroidServer.model.JobStatus;
+import io.github.jaronie.centroidServer.support.TestEnv;
 
 /**
  * Calls run() directly. Without a Spring context there is no @Async proxy, so
@@ -23,11 +25,13 @@ import io.github.jaronie.centroidServer.model.JobStatus;
  * <p>The success test launches the real centroidFinder.jar, so it is the slowest
  * test in the suite (a few seconds). It is worth it: it is the only test that
  * proves the server and the processor actually agree on the command line.
+ *
+ * <p>Tagged "integration" because of that jar: it is gitignored build output,
+ * so these tests skip rather than fail when it has not been built. See
+ * {@link TestEnv}.
  */
+@Tag("integration")
 class JobRunnerTest {
-
-    private static final Path REAL_JAR = Path.of("../processor/target/centroidFinder.jar");
-    private static final Path REAL_CLIP = Path.of("data/videos/testclip.mp4");
 
     @TempDir
     Path tmp;
@@ -45,6 +49,16 @@ class JobRunnerTest {
         jobs = new JobService();
     }
 
+    /** Skips the test when the processor jar has not been built. */
+    private static String realJar() {
+        return TestEnv.requireProcessorJar().toString();
+    }
+
+    /** Puts the committed sample clip in the videos directory under {@code name}. */
+    private Path copyClipAs(String name) throws IOException {
+        return TestEnv.copyTestClip(videosDir.resolve(name));
+    }
+
     private JobRunner runner(String jarPath) {
         return new JobRunner(
                 new AppProperties(videosDir, jarPath, resultsDir, tmp.resolve("thumbs"), logsDir, "ffmpeg"),
@@ -54,10 +68,10 @@ class JobRunnerTest {
     @Test
     @DisplayName("a successful run marks the job done and writes a real CSV")
     void successfulRun() throws IOException {
-        Files.copy(REAL_CLIP, videosDir.resolve("clip.mp4"));
+        copyClipAs("clip.mp4");
         Job job = jobs.create();
 
-        runner(REAL_JAR.toString()).run(job.id(), "clip.mp4", "FF0000", 100);
+        runner(realJar()).run(job.id(), "clip.mp4", "FF0000", 100);
 
         Job finished = jobs.find(job.id()).orElseThrow();
         assertThat(finished.status()).isEqualTo(JobStatus.DONE);
@@ -76,10 +90,10 @@ class JobRunnerTest {
     @Test
     @DisplayName("the job's resultUrl is a URL, never a filesystem path")
     void resultUrlIsNotAFilesystemPath() throws IOException {
-        Files.copy(REAL_CLIP, videosDir.resolve("clip.mp4"));
+        copyClipAs("clip.mp4");
         Job job = jobs.create();
 
-        runner(REAL_JAR.toString()).run(job.id(), "clip.mp4", "FF0000", 100);
+        runner(realJar()).run(job.id(), "clip.mp4", "FF0000", 100);
 
         String url = jobs.find(job.id()).orElseThrow().resultUrl();
         assertThat(url).startsWith("/results/").doesNotContain(tmp.toString());
@@ -88,10 +102,10 @@ class JobRunnerTest {
     @Test
     @DisplayName("a successful run writes a per-job log file")
     void writesJobLog() throws IOException {
-        Files.copy(REAL_CLIP, videosDir.resolve("clip.mp4"));
+        copyClipAs("clip.mp4");
         Job job = jobs.create();
 
-        runner(REAL_JAR.toString()).run(job.id(), "clip.mp4", "FF0000", 100);
+        runner(realJar()).run(job.id(), "clip.mp4", "FF0000", 100);
 
         assertThat(logsDir.resolve(job.id() + ".log")).exists();
     }
@@ -107,7 +121,7 @@ class JobRunnerTest {
         Files.writeString(videosDir.resolve("broken.mp4"), "this is not a video");
         Job job = jobs.create();
 
-        runner(REAL_JAR.toString()).run(job.id(), "broken.mp4", "FF0000", 100);
+        runner(realJar()).run(job.id(), "broken.mp4", "FF0000", 100);
 
         Job finished = jobs.find(job.id()).orElseThrow();
         assertThat(finished.status()).isEqualTo(JobStatus.ERROR);
@@ -119,7 +133,7 @@ class JobRunnerTest {
     @Test
     @DisplayName("a missing jar fails the job instead of throwing out of the async method")
     void missingJarFailsTheJob() throws IOException {
-        Files.copy(REAL_CLIP, videosDir.resolve("clip.mp4"));
+        copyClipAs("clip.mp4");
         Job job = jobs.create();
 
         runner(tmp.resolve("no-such.jar").toString()).run(job.id(), "clip.mp4", "FF0000", 100);
@@ -138,7 +152,7 @@ class JobRunnerTest {
         Files.writeString(videosDir.resolve("broken.mp4"), "not a video");
 
         for (String[] scenario : new String[][] {
-                { REAL_JAR.toString(), "broken.mp4" },
+                { realJar(), "broken.mp4" },
                 { tmp.resolve("missing.jar").toString(), "broken.mp4" } }) {
             Job job = jobs.create();
             runner(scenario[0]).run(job.id(), scenario[1], "FF0000", 100);

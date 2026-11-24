@@ -26,6 +26,23 @@
   <properties>
     <!-- Matches the processor module. Spring Boot 4 needs 17 or later. -->
     <java.version>21</java.version>
+
+    <!--
+      JUnit tag selection, surfaced as properties so CI can pick a slice
+      without a second pom or a profile.
+
+      Tests tagged "integration" need something that is not in the repository:
+      the processor jar (gitignored build output, ~100 MB) or ffmpeg. They skip
+      themselves when it is missing, but skipping silently is not the same as
+      choosing, so the CI "unit" job excludes them outright and the
+      "integration" job supplies the prerequisites and runs everything.
+
+        mvn test                                    # everything available
+        mvn test -Dtest.excludedGroups=integration  # fast, hermetic subset
+        mvn test -Dtest.groups=integration          # only the slow ones
+    -->
+    <test.groups></test.groups>
+    <test.excludedGroups></test.excludedGroups>
   </properties>
 
   <dependencies>
@@ -79,6 +96,20 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <!--
+        Version comes from spring-boot-starter-parent; only the tag selection
+        is ours. Both properties are empty by default, which surefire treats as
+        "no filter", so a plain `mvn test` behaves exactly as before.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <groups>${test.groups}</groups>
+          <excludedGroups>${test.excludedGroups}</excludedGroups>
+        </configuration>
       </plugin>
     </plugins>
   </build>
