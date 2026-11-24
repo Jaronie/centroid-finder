@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -88,10 +88,7 @@ public class FrameExtractorTests {
 
     /**
      * Helper: drain an extractor into a list so its frames' index/timestamp
-     * metadata can be inspected. Pixel data must NOT be read from this list --
-     * Java2DFrameConverter reuses one BufferedImage, so every element ends up
-     * pointing at the last decoded frame (see
-     * testAllFramesShareTheConvertersImageBuffer).
+     * metadata and pixels can be inspected after decoding.
      */
     private static List<VideoFrame> readAll(FrameExtractor extractor) {
         List<VideoFrame> frames = new ArrayList<>();
@@ -216,19 +213,14 @@ public class FrameExtractorTests {
     }
 
     @Test
-    public void testAllFramesShareTheConvertersImageBuffer() throws Exception {
-        // Documents a sharp edge rather than desired behavior:
-        // Java2DFrameConverter returns the same BufferedImage object every
-        // time, so holding on to VideoFrames and reading their pixels later
-        // shows the LAST frame's content, not each frame's. VideoPipeline is
-        // safe because it consumes each frame before advancing; anything that
-        // buffers frames must copy the image first.
+    public void testFramesHaveIndependentImageBuffers() throws Exception {
         try (FrameExtractor extractor = new FrameExtractor(videoPath.toString())) {
             Iterator<VideoFrame> iterator = extractor.iterator();
             BufferedImage first = iterator.next().image();
             BufferedImage second = iterator.next().image();
 
-            assertSame(first, second);
+            assertNotSame(first, second);
+            assertTrue(brightCenterX(second) > brightCenterX(first));
         }
     }
 
