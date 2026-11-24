@@ -12,7 +12,7 @@ name: Processor Tests
 
 on:
   push:
-    branches: [main, server, automated-testing]
+    branches: [main, server]
   pull_request:
     branches: [main, server]
   workflow_dispatch:
