@@ -1,6 +1,7 @@
 package io.github.jaronie.centroidFinder;
 
 import java.awt.image.BufferedImage;
+import java.awt.Graphics2D;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
@@ -47,7 +48,9 @@ public class FrameExtractor implements Iterable<VideoFrame>, AutoCloseable {
                     Frame frame = grabber.grabImage();
                     if (frame == null) return null; // end of stream
 
-                    BufferedImage image = converter.getBufferedImage(frame); // may be null on bad frame
+                    BufferedImage converted = converter.getBufferedImage(frame);
+                    // The converter reuses its image buffer when the next frame is decoded.
+                    BufferedImage image = converted == null ? null : copyOf(converted);
                     double seconds = grabber.getTimestamp() / 1_000_000.0;
                     if (seconds <= 0 && index > 0 && fps > 0) seconds = index / fps; // fallback
                     return new VideoFrame(index++, seconds, image);
@@ -65,6 +68,18 @@ public class FrameExtractor implements Iterable<VideoFrame>, AutoCloseable {
                 return current;
             }
         };
+    }
+
+    private static BufferedImage copyOf(BufferedImage source) {
+        BufferedImage copy = new BufferedImage(
+                source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = copy.createGraphics();
+        try {
+            graphics.drawImage(source, 0, 0, null);
+        } finally {
+            graphics.dispose();
+        }
+        return copy;
     }
 
     @Override
