@@ -17,8 +17,14 @@ import org.bytedeco.javacv.Java2DFrameConverter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * Exercises the real video pipeline using a generated three-frame clip:
+ * FFmpeg extraction, color binarization, connected-group detection, cropping,
+ * and CSV writing. A large white stripe outside the crop acts as a distractor;
+ * the CSV should report the moving square in full-frame coordinates. The clip
+ * is temporary so the test needs no checked-in video.
+ */
 public class VideoEndToEndTests {
-
     private static final int WIDTH = 160;
     private static final int HEIGHT = 120;
     private static final int FRAME_COUNT = 3;
@@ -51,6 +57,7 @@ public class VideoEndToEndTests {
         assertEquals(new VideoPipeline.Summary(FRAME_COUNT, 0, 0), summary);
         assertEquals(FRAME_COUNT, rows.size());
 
+        // The square advances 20 pixels per frame; centroids use integer division.
         int[] expectedX = {49, 69, 89};
         for (int i = 0; i < rows.size(); i++) {
             String[] columns = rows.get(i).split(",");
@@ -64,6 +71,7 @@ public class VideoEndToEndTests {
         }
     }
 
+    /** Encodes the moving target and out-of-crop stripe into a temporary MP4. */
     private static void createVideo(Path path) throws Exception {
         try (FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(path.toFile(), WIDTH, HEIGHT);
              Java2DFrameConverter converter = new Java2DFrameConverter()) {
