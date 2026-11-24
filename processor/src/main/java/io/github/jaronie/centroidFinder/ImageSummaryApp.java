@@ -54,6 +54,12 @@ public class ImageSummaryApp {
             e.printStackTrace();
             return;
         }
+        // ImageIO.read returns null (rather than throwing) for unsupported formats.
+        if (inputImage == null) {
+            System.err.println("Error loading image: " + inputImagePath + " is not a supported image.");
+            return;
+        }
+        
         // Parse the target color from a hex string (format RRGGBB) into a 24-bit integer (0xRRGGBB)
         int targetColor = 0;
         try {
