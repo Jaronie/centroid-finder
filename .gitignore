@@ -34,6 +34,10 @@ frames/
 /binarized.png
 /thumb.jpg
 
+# Sample Input
+/processor/sampleOutput/
+/processor/sampleInput/
+
 # Server runtime data: source videos, generated CSVs, cached thumbnails
 server/data/
 
